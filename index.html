@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KanaHub</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0b0e;
+  --surface: #13131a;
+  --border: rgba(255,255,255,0.07);
+  --text: #edeae4;
+  --muted: rgba(237,234,228,0.42);
+  --accent: #b8ff4f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 3rem 2rem;
+}
+header { margin-bottom: 3rem; }
+.logo { font-size: clamp(28px,5vw,48px); font-weight: 800; letter-spacing: -0.04em; }
+.logo em { color: var(--accent); font-style: normal; }
+.logo-sub { font-size: 12px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 6px; }
+
+.section-label {
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin-bottom: 1rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  flex: 1;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .18s, transform .18s, background .18s;
+  position: relative;
+  overflow: hidden;
+}
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  background: #1a1a24;
+}
+.card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+.card-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.card-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.card-arrow {
+  margin-top: auto;
+  font-size: 18px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .18s, transform .18s;
+  transform: translateX(-4px);
+}
+.card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+
+.card-new {
+  border: 1.5px dashed rgba(255,255,255,0.1);
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  gap: 6px;
+  cursor: default;
+}
+.card-new:hover {
+  border-color: rgba(255,255,255,0.2);
+  background: transparent;
+  transform: none;
+}
+.card-new-icon { font-size: 22px; opacity: .4; }
+
+footer {
+  margin-top: 3rem;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: .5;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Kana<em>Hub</em></div>
+  <div class="logo-sub">my personal projects</div>
+</header>
+
+<div class="section-label">Projects</div>
+<div class="grid">
+
+  <a class="card" href="./subscription-tracker/">
+    <div class="card-icon">💳</div>
+    <div class="card-name">Subscription Tracker</div>
+    <div class="card-desc">ติดตาม subscription รายเดือน จัดเรียงตามราคา ลากขึ้น-ลงได้</div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <div class="card card-new">
+    <div class="card-new-icon">＋</div>
+    <span>coming soon</span>
+  </div>
+
+</div>
+
+<footer>KanaHub by Knaphp · knaphp.github.io/KanaHub</footer>
+
+</body>
+</html>
