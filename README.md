@@ -1,3 +1,1 @@
-# KanaHub
- My personal projects hub
-Hello !!
+ไว้ลงเรื่องไร้สาระที่จำเป็นในชีวิต :D
