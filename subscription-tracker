@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KanaHub — Subscriptions</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0b0e;
+  --surface: #13131a;
+  --card: #18181f;
+  --border: rgba(255,255,255,0.06);
+  --border-hi: rgba(255,255,255,0.14);
+  --text: #edeae4;
+  --muted: rgba(237,234,228,0.42);
+  --accent: #b8ff4f;
+  --accent-dim: rgba(184,255,79,0.12);
+  --danger: #ff6b6b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scrollbar-width: thin; scrollbar-color: #2a2a35 transparent; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  padding: 2rem 2rem 4rem;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.logo { font-size: clamp(22px,3.5vw,32px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.logo em { color: var(--accent); font-style: normal; }
+.logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
+.stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+.stat { text-align: right; }
+.stat-val { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.09em; margin-top: 2px; }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;
+}
+.toolbar input {
+  flex: 1; min-width: 150px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-family: 'Syne', sans-serif; font-size: 13px;
+  padding: 9px 14px; outline: none; transition: border-color .15s;
+}
+.toolbar input::placeholder { color: var(--muted); }
+.toolbar input:focus { border-color: var(--accent); }
+.btn-add {
+  background: var(--accent); color: #0b0b0e;
+  border: none; border-radius: 10px;
+  font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+  padding: 9px 20px; cursor: pointer; transition: opacity .15s; white-space: nowrap;
+}
+.btn-add:hover { opacity: .82; }
+.hint { font-size: 11px; color: var(--muted); margin-left: 4px; align-self: center; }
+
+/* ── ALERT ── */
+.alert-bar {
+  background: rgba(184,255,79,.06); border: 1px solid rgba(184,255,79,.18);
+  border-radius: 10px; padding: 10px 16px; font-size: 13px; color: var(--accent);
+  margin-bottom: 1.25rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+
+/* ── TREEMAP ── */
+#treemap {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 2.5rem;
+}
+.tm-col {
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 0;
+}
+.tile {
+  border-radius: 16px; padding: 16px 14px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  cursor: grab; position: relative; overflow: hidden; min-height: 80px;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: transform .18s, box-shadow .18s, opacity .18s;
+  user-select: none; -webkit-user-select: none;
+}
+.tile:hover { transform: scale(1.015); box-shadow: 0 8px 32px rgba(0,0,0,.45); }
+.tile.dragging { opacity: .45; cursor: grabbing; transform: scale(.97); }
+.tile.drag-over { box-shadow: 0 0 0 2px var(--accent); }
+
+.tile-top { display: flex; flex-direction: column; gap: 2px; }
+.tile-name { font-size: clamp(12px,1.6vw,15px); font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
+.tile-cat { font-size: 9px; opacity: .6; text-transform: uppercase; letter-spacing: .07em; }
+.tile-bottom { }
+.tile-cost { font-family: 'DM Mono', monospace; font-weight: 500; font-size: clamp(14px,1.9vw,21px); line-height: 1; }
+.tile-cyc { font-size: 9px; opacity: .55; margin-top: 2px; }
+
+.tile-badge {
+  position: absolute; top: 9px; right: 9px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 99px; background: rgba(0,0,0,.3);
+}
+.tile-drag-handle {
+  position: absolute; bottom: 8px; right: 9px;
+  font-size: 14px; opacity: 0; transition: opacity .15s;
+  color: rgba(255,255,255,.5); pointer-events: none;
+}
+.tile:hover .tile-drag-handle { opacity: 1; }
+.tile-actions {
+  position: absolute; bottom: 7px; left: 10px;
+  display: flex; gap: 4px; opacity: 0; transition: opacity .15s;
+}
+.tile:hover .tile-actions { opacity: 1; }
+.tile-actions button {
+  background: rgba(0,0,0,.38); border: none; border-radius: 6px;
+  color: #fff; cursor: pointer; font-size: 11px; font-family: 'Syne',sans-serif;
+  padding: 3px 9px;
+}
+.tile-actions button:hover { background: rgba(0,0,0,.6); }
+
+/* ── MODAL ── */
+.modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.72); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: #1c1c26; border: 1px solid var(--border-hi);
+  border-radius: 22px; padding: 2rem; width: 100%; max-width: 400px;
+  max-height: 90vh; overflow-y: auto;
+  animation: slideUp .2s ease;
+}
+@keyframes slideUp { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 1.5rem; }
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; color: var(--text); font-family: 'Syne',sans-serif;
+  font-size: 13px; padding: 9px 12px; outline: none; transition: border-color .15s;
+}
+.field select option { background: #1c1c26; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.5rem; }
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border-hi);
+  border-radius: 9px; color: var(--muted); cursor: pointer;
+  font-family: 'Syne',sans-serif; font-size: 13px; padding: 9px 16px;
+  transition: color .15s;
+}
+.btn-cancel:hover { color: var(--text); }
+.btn-save {
+  background: var(--accent); border: none; border-radius: 9px;
+  color: #0b0b0e; cursor: pointer; font-family: 'Syne',sans-serif;
+  font-size: 13px; font-weight: 700; padding: 9px 22px;
+}
+.btn-save:hover { opacity: .85; }
+.btn-del {
+  background: rgba(255,107,107,.12); border: 1px solid rgba(255,107,107,.25);
+  border-radius: 9px; color: var(--danger); cursor: pointer;
+  font-family: 'Syne',sans-serif; font-size: 13px; padding: 9px 16px;
+}
+.btn-del:hover { background: rgba(255,107,107,.22); }
+
+.empty { text-align: center; padding: 5rem 1rem; color: var(--muted); font-size: 14px; width: 100%; }
+.empty-icon { font-size: 36px; margin-bottom: 10px; }
+footer { text-align: center; font-size: 10px; color: var(--muted); opacity: .6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Kana<em>Hub</em></div>
+    <div class="logo-sub">subscription tracker</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="statMonthly">฿0</div><div class="stat-label">/ เดือน</div></div>
+    <div class="stat"><div class="stat-val" id="statYearly">฿0</div><div class="stat-label">/ ปี</div></div>
+    <div class="stat"><div class="stat-val" id="statCount">0</div><div class="stat-label">active</div></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input type="text" id="searchEl" placeholder="ค้นหา..."/>
+  <button class="btn-add" id="addBtn">+ เพิ่ม</button>
+  <span class="hint">⠿ ลากเพื่อเรียงลำดับ</span>
+</div>
+
+<div id="alertEl"></div>
+<div id="treemap"></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalEl"></div>
+</div>
+
+<footer>KanaHub · data stored locally · drag tiles to reorder</footer>
+
+<script>
+const CATS=['Streaming','Music','Software','Gaming','News','Fitness','Cloud','Shopping','Finance','Other'];
+const PALETTES={
+  Streaming:['#3b0764','#7c3aed'],
+  Music:    ['#052e16','#16a34a'],
+  Software: ['#172554','#2563eb'],
+  Gaming:   ['#500724','#e11d48'],
+  News:     ['#1c1c22','#52525b'],
+  Fitness:  ['#1a2e05','#65a30d'],
+  Cloud:    ['#082f49','#0284c7'],
+  Shopping: ['#431407','#ea580c'],
+  Finance:  ['#042f2e','#0d9488'],
+  Other:    ['#1e1b4b','#6366f1'],
+};
+
+let subs=[];
+let dragSrcId=null;
+
+function uid(){return Math.random().toString(36).slice(2,10);}
+function nextDate(d){const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
+function monthCost(s){if(s.status==='cancelled')return 0;if(s.cycle==='yearly')return s.cost/12;if(s.cycle==='weekly')return s.cost*4.33;return s.cost;}
+function daysUntil(ds){const d=new Date(ds),n=new Date();n.setHours(0,0,0,0);d.setHours(0,0,0,0);return Math.round((d-n)/86400000);}
+function fmt(n){return '฿'+Math.round(n).toLocaleString('th-TH');}
+
+function load(){
+  try{const r=localStorage.getItem('kanahub_subs2');subs=r?JSON.parse(r):samples();}catch(e){subs=samples();}
+  render();
+}
+function save(){try{localStorage.setItem('kanahub_subs2',JSON.stringify(subs));}catch(e){}}
+
+function samples(){return[
+  {id:uid(),name:'Adobe CC',cat:'Software',cost:1690,cycle:'monthly',status:'active',renew:nextDate(3),method:'Credit Card',notes:'',order:0},
+  {id:uid(),name:'ChatGPT Plus',cat:'Software',cost:680,cycle:'monthly',status:'active',renew:nextDate(25),method:'Credit Card',notes:'',order:1},
+  {id:uid(),name:'Figma Pro',cat:'Software',cost:560,cycle:'monthly',status:'active',renew:nextDate(8),method:'Credit Card',notes:'',order:2},
+  {id:uid(),name:'Netflix',cat:'Streaming',cost:419,cycle:'monthly',status:'active',renew:nextDate(12),method:'Credit Card',notes:'',order:3},
+  {id:uid(),name:'YouTube Premium',cat:'Streaming',cost:189,cycle:'monthly',status:'active',renew:nextDate(18),method:'Credit Card',notes:'',order:4},
+  {id:uid(),name:'Spotify',cat:'Music',cost:129,cycle:'monthly',status:'active',renew:nextDate(5),method:'Credit Card',notes:'',order:5},
+  {id:uid(),name:'iCloud 200GB',cat:'Cloud',cost:35,cycle:'monthly',status:'active',renew:nextDate(22),method:'Credit Card',notes:'',order:6},
+];}
+
+/* ── DRAG & DROP ── */
+function onDragStart(e,id){
+  dragSrcId=id;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',id);
+  setTimeout(()=>document.querySelector(`[data-id="${id}"]`)?.classList.add('dragging'),0);
+}
+function onDragEnd(e){
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('dragging','drag-over'));
+  dragSrcId=null;
+}
+function onDragOver(e,id){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('drag-over'));
+  if(id!==dragSrcId) document.querySelector(`[data-id="${id}"]`)?.classList.add('drag-over');
+}
+function onDrop(e,targetId){
+  e.preventDefault();
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('drag-over'));
+  if(!dragSrcId||dragSrcId===targetId)return;
+  const si=subs.findIndex(s=>s.id===dragSrcId);
+  const ti=subs.findIndex(s=>s.id===targetId);
+  if(si<0||ti<0)return;
+  const tmp=subs.splice(si,1)[0];
+  subs.splice(ti,0,tmp);
+  subs.forEach((s,i)=>s.order=i);
+  save(); render();
+}
+
+/* ── RENDER ── */
+function render(){
+  const q=document.getElementById('searchEl').value.toLowerCase();
+  const list=subs.filter(s=>!q||s.name.toLowerCase().includes(q)||s.cat.toLowerCase().includes(q));
+
+  const active=subs.filter(s=>s.status==='active');
+  const monthly=active.reduce((a,s)=>a+monthCost(s),0);
+  document.getElementById('statMonthly').textContent=fmt(monthly);
+  document.getElementById('statYearly').textContent=fmt(monthly*12);
+  document.getElementById('statCount').textContent=active.length;
+
+  const soon=subs.filter(s=>s.status==='active'&&daysUntil(s.renew)<=3&&daysUntil(s.renew)>=0);
+  document.getElementById('alertEl').innerHTML=soon.length
+    ?`<div class="alert-bar">⚡ ต่ออายุเร็วๆ นี้: ${soon.map(s=>`<b>${s.name}</b> (${daysUntil(s.renew)} วัน)`).join(' · ')}</div>`:'';
+
+  const sorted=[...list].filter(s=>s.status!=='cancelled').sort((a,b)=>monthCost(b)-monthCost(a));
+  const cancelled=list.filter(s=>s.status==='cancelled');
+  const all=[...sorted,...cancelled];
+
+  const tm=document.getElementById('treemap');
+  if(!all.length){
+    tm.innerHTML='<div class="empty"><div class="empty-icon">◻</div>ยังไม่มี subscription<br><span style="font-size:12px;margin-top:6px;display:block">กด + เพิ่ม เพื่อเริ่มต้น</span></div>';
+    return;
+  }
+
+  const cols=all.length===1?1:all.length<=3?all.length:all.length<=6?3:4;
+  const groups=Array.from({length:cols},()=>[]);
+  all.forEach((s,i)=>groups[i%cols].push(s));
+  const colSums=groups.map(g=>g.reduce((a,s)=>a+Math.max(monthCost(s),1),0));
+  const maxColSum=Math.max(...colSums,1);
+  const h=Math.max(420,Math.min(640,(tm.offsetWidth||680)*0.72));
+  tm.style.height=h+'px';
+  tm.innerHTML='';
+
+  groups.forEach((group,ci)=>{
+    if(!group.length)return;
+    const col=document.createElement('div');
+    col.className='tm-col';
+    col.style.flex=(colSums[ci]/maxColSum).toFixed(3);
+    col.style.height='100%';
+
+    group.forEach(s=>{
+      const mc=Math.max(monthCost(s),1);
+      const pal=PALETTES[s.cat]||PALETTES.Other;
+      const days=daysUntil(s.renew);
+      const isActive=s.status==='active';
+      const isPaused=s.status==='paused';
+      const colTotal=group.reduce((a,x)=>a+Math.max(monthCost(x),1),0)||1;
+
+      const tile=document.createElement('div');
+      tile.className='tile';
+      tile.dataset.id=s.id;
+      tile.style.flex=(mc/colTotal).toFixed(3);
+      tile.style.background=isActive
+        ?`linear-gradient(145deg,${pal[0]},${pal[1]})`
+        :'rgba(24,24,30,0.95)';
+      tile.style.border=isPaused
+        ?'1px solid rgba(255,255,255,.13)'
+        :'1px solid rgba(255,255,255,.04)';
+      tile.style.opacity=isPaused?'0.6':'1';
+      tile.draggable=true;
+
+      const cyc=s.cycle==='monthly'?'/เดือน':s.cycle==='yearly'?'/ปี':'/สัปดาห์';
+      const badgeTxt=s.status==='paused'?'paused':s.status==='cancelled'?'cancelled':days<0?'หมดอายุ':days===0?'วันนี้!':days<=3?`${days}d!`:`${days}d`;
+      const badgeColor=(days<=3&&isActive)?'var(--accent)':'rgba(255,255,255,.45)';
+
+      tile.innerHTML=`
+        <div class="tile-top">
+          <div class="tile-name">${s.name}</div>
+          <div class="tile-cat">${s.cat}</div>
+        </div>
+        <div class="tile-bottom">
+          <div class="tile-cost">${fmt(s.cost)}</div>
+          <div class="tile-cyc">${cyc}</div>
+        </div>
+        <div class="tile-badge" style="color:${badgeColor}">${badgeTxt}</div>
+        <div class="tile-drag-handle">⠿</div>
+        <div class="tile-actions">
+          <button onclick="openEdit('${s.id}');event.stopPropagation()">แก้ไข</button>
+          <button onclick="deleteSub('${s.id}');event.stopPropagation()">ลบ</button>
+        </div>`;
+
+      tile.addEventListener('dragstart',e=>onDragStart(e,s.id));
+      tile.addEventListener('dragend',onDragEnd);
+      tile.addEventListener('dragover',e=>onDragOver(e,s.id));
+      tile.addEventListener('drop',e=>onDrop(e,s.id));
+      tile.addEventListener('click',()=>openEdit(s.id));
+      col.appendChild(tile);
+    });
+    tm.appendChild(col);
+  });
+}
+
+/* ── MODAL ── */
+function openAdd(){showModal(null);}
+function openEdit(id){showModal(subs.find(s=>s.id===id));}
+function showModal(sub){
+  const isEdit=!!sub;
+  document.getElementById('modalBg').classList.add('open');
+  document.getElementById('modalEl').innerHTML=`
+    <h2>${isEdit?'แก้ไข':'เพิ่ม'} subscription</h2>
+    <div class="field"><label>ชื่อ</label><input id="m_name" value="${sub?sub.name:''}" placeholder="เช่น Netflix" autofocus/></div>
+    <div class="row2">
+      <div class="field"><label>Category</label><select id="m_cat">${CATS.map(c=>`<option${sub&&sub.cat===c?' selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Status</label><select id="m_st">${['active','paused','cancelled'].map(s=>`<option${sub&&sub.status===s?' selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>ราคา (฿)</label><input id="m_cost" type="number" min="0" value="${sub?sub.cost:''}" placeholder="199"/></div>
+      <div class="field"><label>รอบชำระ</label><select id="m_cycle">${['monthly','yearly','weekly'].map(c=>`<option${sub&&sub.cycle===c?' selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>วันต่ออายุ</label><input id="m_renew" type="date" value="${sub?sub.renew:nextDate(30)}"/></div>
+      <div class="field"><label>วิธีชำระ</label><input id="m_method" value="${sub?sub.method:''}" placeholder="Credit Card"/></div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><input id="m_notes" value="${sub?sub.notes:''}" placeholder="..."/></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
+      ${isEdit?`<button class="btn-del" onclick="deleteSub('${sub.id}');closeModal()">ลบ</button>`:''}
+      <button class="btn-save" onclick="saveSub('${isEdit?sub.id:''}')">${isEdit?'บันทึก':'เพิ่ม'}</button>
+    </div>`;
+}
+function closeModal(){document.getElementById('modalBg').classList.remove('open');}
+document.getElementById('modalBg').onclick=e=>{if(e.target===document.getElementById('modalBg'))closeModal();};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+function saveSub(id){
+  const name=document.getElementById('m_name').value.trim();
+  if(!name)return;
+  const obj={
+    id:id||uid(),name,
+    cat:document.getElementById('m_cat').value,
+    cost:parseFloat(document.getElementById('m_cost').value)||0,
+    cycle:document.getElementById('m_cycle').value,
+    status:document.getElementById('m_st').value,
+    renew:document.getElementById('m_renew').value,
+    method:document.getElementById('m_method').value,
+    notes:document.getElementById('m_notes').value,
+    order:id?subs.find(s=>s.id===id)?.order??subs.length:subs.length,
+  };
+  if(id){const i=subs.findIndex(s=>s.id===id);if(i>-1)subs[i]=obj;}else subs.push(obj);
+  save();closeModal();render();
+}
+function deleteSub(id){subs=subs.filter(s=>s.id!==id);save();render();}
+
+document.getElementById('addBtn').onclick=openAdd;
+document.getElementById('searchEl').oninput=render;
+window.addEventListener('resize',render);
+load();
+</script>
+</body>
+</html>
