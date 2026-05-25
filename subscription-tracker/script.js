@@ -1,14 +1,10 @@
 // ── FIREBASE IMPORTS ───────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {
-  getFirestore, collection, addDoc, updateDoc,
-  deleteDoc, doc, onSnapshot, query, orderBy
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ── CONFIG ─────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyDBOuyfHre1_CE3dWCkJuo7LLfiaFcBiys",
   authDomain:        "kanahub-a4f9a.firebaseapp.com",
@@ -17,260 +13,241 @@ const firebaseConfig = {
   messagingSenderId: "587364108316",
   appId:             "1:587364108316:web:21d46aba7b8382767977d9",
 };
-
 const app      = initializeApp(firebaseConfig);
 const auth     = getAuth(app);
 const db       = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 // ── CONSTANTS ──────────────────────────────────────────────
-const CATS = [
-  'Streaming','Music','Software','Gaming',
-  'News','Fitness','Cloud','Shopping','Finance','Other'
-];
-const BG = {
-  Streaming:'#5B6EE8', Music:'#E8A838',    Software:'#6B9FE8',
-  Gaming:   '#E85B8A', News:'#7B8794',     Fitness:'#6BB86B',
-  Cloud:    '#5BA8E8', Shopping:'#E87B3B', Finance:'#3BBFB8',
-  Other:    '#8B7BE8',
-};
+const CATS = ['Streaming','Music','Software','Gaming','News','Fitness','Cloud','Shopping','Finance','Other'];
 
 // ── STATE ──────────────────────────────────────────────────
 let subs        = [];
 let currentUser = null;
-let unsubscribe = null;   // firestore listener cleanup
+let unsubscribe = null;
 let dragSrcId   = null;
+let pendingIcon = null; // base64 icon from file input
 
 // ── UTILS ──────────────────────────────────────────────────
-function nextDate(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+function nextDate(d) { const dt = new Date(); dt.setDate(dt.getDate()+d); return dt.toISOString().slice(0,10); }
 function monthCost(s) {
-  if (s.status === 'cancelled') return 0;
-  if (s.cycle  === 'yearly')   return s.cost / 12;
-  if (s.cycle  === 'weekly')   return s.cost * 4.33;
+  if (s.status==='cancelled') return 0;
+  if (s.cycle==='yearly')  return s.cost/12;
+  if (s.cycle==='weekly')  return s.cost*4.33;
   return s.cost;
 }
-function daysUntil(dateStr) {
-  const t = new Date(dateStr), n = new Date();
+function daysUntil(ds) {
+  const t=new Date(ds), n=new Date();
   n.setHours(0,0,0,0); t.setHours(0,0,0,0);
-  return Math.round((t - n) / 86400000);
+  return Math.round((t-n)/86400000);
 }
-function fmt(n) { return '฿' + Math.round(n).toLocaleString('th-TH'); }
-function fmtDate(dateStr) {
-  const d = new Date(dateStr);
-  const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
+function fmt(n)  { return '฿'+Math.round(n).toLocaleString('th-TH'); }
+function fmtDate(ds) {
+  const d=new Date(ds);
+  return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`;
 }
-function showStatus(msg, isError = false) {
-  const el = document.getElementById('statusEl');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color   = isError ? '#ff6b6b' : '#b8ff4f';
-  el.style.opacity = '1';
-  setTimeout(() => el.style.opacity = '0', 2500);
+function showStatus(msg, err=false) {
+  const el=document.getElementById('statusEl');
+  el.textContent=msg; el.style.color=err?'#ef4444':'#3dba8f'; el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0', 2500);
+}
+
+// ── ICON: file → base64 ────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
 }
 
 // ── AUTH UI ────────────────────────────────────────────────
-function renderAuthBar(user) {
-  const bar = document.getElementById('authBar');
+function renderTopbar(user) {
+  const info = document.getElementById('userInfo');
+  const act  = document.getElementById('authAction');
   if (user) {
-    bar.innerHTML = `
-      <img src="${user.photoURL}" alt="avatar"
-        style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>
-      <span style="font-size:13px;color:var(--muted)">${user.displayName}</span>
-      <button id="logoutBtn" class="btn-logout">ออกจากระบบ</button>
-    `;
-    document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+    info.innerHTML = `<img class="user-avatar" src="${user.photoURL}"/><span class="user-name">${user.displayName}</span>`;
+    act.innerHTML  = `<button class="btn-logout" id="logoutBtn">Logout</button>`;
+    document.getElementById('logoutBtn').addEventListener('click', ()=>signOut(auth));
   } else {
-    bar.innerHTML = `
-      <button id="loginBtn" class="btn-login">
-        <svg width="16" height="16" viewBox="0 0 48 48" style="vertical-align:middle;margin-right:6px">
-          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.8 6C12.3 13 17.7 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
-          <path fill="#FBBC05" d="M10.4 28.7A14.6 14.6 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.8-6z"/>
-          <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.7 2.2-6.3 0-11.6-4.2-13.6-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
-        </svg>
-        เข้าสู่ระบบด้วย Google
-      </button>
-    `;
-    document.getElementById('loginBtn').addEventListener('click', login);
-  }
-}
-
-function showLoginScreen() {
-  document.getElementById('appContent').style.display = 'none';
-  document.getElementById('loginScreen').style.display = 'flex';
-}
-function showAppScreen() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appContent').style.display  = 'block';
-}
-
-// ── AUTH ACTIONS ───────────────────────────────────────────
-async function login() {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    showStatus('Login ไม่สำเร็จ: ' + e.message, true);
+    info.innerHTML = `<div class="user-avatar-placeholder">👤</div><span class="user-name" style="color:#9ca3af">ยังไม่ได้ login</span>`;
+    act.innerHTML  = '';
   }
 }
 
 // ── FIRESTORE ──────────────────────────────────────────────
-function getUserCol(uid) {
-  // each user gets their own subcollection: users/{uid}/subscriptions
-  return collection(db, 'users', uid, 'subscriptions');
-}
+function col(uid) { return collection(db,'users',uid,'subscriptions'); }
 
 function startListener(uid) {
-  if (unsubscribe) unsubscribe(); // stop previous listener
-  const q = query(getUserCol(uid), orderBy('order', 'asc'));
-  unsubscribe = onSnapshot(q, (snapshot) => {
-    subs = snapshot.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  if (unsubscribe) unsubscribe();
+  const q = query(col(uid), orderBy('order','asc'));
+  unsubscribe = onSnapshot(q, snap => {
+    subs = snap.docs.map(d=>({firestoreId:d.id,...d.data()}));
     render();
-  }, (err) => {
-    console.error(err);
-    showStatus('เชื่อมต่อ Firebase ไม่ได้', true);
-  });
+  }, err => { console.error(err); showStatus('เชื่อม Firebase ไม่ได้', true); });
 }
 
-async function addSub(data) {
-  try {
-    data.order = subs.length;
-    await addDoc(getUserCol(currentUser.uid), data);
-    showStatus('เพิ่มแล้ว ✓');
-  } catch (e) { showStatus('เพิ่มไม่ได้: ' + e.message, true); }
-}
-
-async function updateSub(firestoreId, data) {
-  try {
-    await updateDoc(doc(db, 'users', currentUser.uid, 'subscriptions', firestoreId), data);
-    showStatus('บันทึกแล้ว ✓');
-  } catch (e) { showStatus('บันทึกไม่ได้: ' + e.message, true); }
-}
-
-async function deleteSub(firestoreId) {
-  try {
-    await deleteDoc(doc(db, 'users', currentUser.uid, 'subscriptions', firestoreId));
-    showStatus('ลบแล้ว ✓');
-  } catch (e) { showStatus('ลบไม่ได้: ' + e.message, true); }
-}
+async function addSub(data)            { try { data.order=subs.length; await addDoc(col(currentUser.uid),data); showStatus('เพิ่มแล้ว ✓'); } catch(e){ showStatus(e.message,true); } }
+async function updateSub(fid, data)    { try { await updateDoc(doc(db,'users',currentUser.uid,'subscriptions',fid),data); showStatus('บันทึกแล้ว ✓'); } catch(e){ showStatus(e.message,true); } }
+async function deleteSub(fid)          { try { await deleteDoc(doc(db,'users',currentUser.uid,'subscriptions',fid)); showStatus('ลบแล้ว ✓'); } catch(e){ showStatus(e.message,true); } }
 
 // ── DRAG & DROP ────────────────────────────────────────────
-function onDragStart(e, id) {
-  dragSrcId = id;
-  e.dataTransfer.effectAllowed = 'move';
-  setTimeout(() => document.querySelector(`[data-id="${id}"]`)?.classList.add('dragging'), 0);
+function onDragStart(e,id){ dragSrcId=id; e.dataTransfer.effectAllowed='move'; setTimeout(()=>document.querySelector(`[data-id="${id}"]`)?.classList.add('dragging'),0); }
+function onDragEnd(){ document.querySelectorAll('.card').forEach(c=>c.classList.remove('dragging','drag-over')); dragSrcId=null; }
+function onDragOver(e,id){ e.preventDefault(); document.querySelectorAll('.card').forEach(c=>c.classList.remove('drag-over')); if(id!==dragSrcId) document.querySelector(`[data-id="${id}"]`)?.classList.add('drag-over'); }
+async function onDrop(e,tid){
+  e.preventDefault(); document.querySelectorAll('.card').forEach(c=>c.classList.remove('drag-over'));
+  if(!dragSrcId||dragSrcId===tid) return;
+  const si=subs.findIndex(s=>s.firestoreId===dragSrcId), ti=subs.findIndex(s=>s.firestoreId===tid);
+  if(si<0||ti<0) return;
+  const r=[...subs]; const [m]=r.splice(si,1); r.splice(ti,0,m);
+  await Promise.all(r.map((s,i)=>updateDoc(doc(db,'users',currentUser.uid,'subscriptions',s.firestoreId),{order:i})));
 }
-function onDragEnd() {
-  document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging','drag-over'));
-  dragSrcId = null;
-}
-function onDragOver(e, id) {
-  e.preventDefault();
-  document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
-  if (id !== dragSrcId) document.querySelector(`[data-id="${id}"]`)?.classList.add('drag-over');
-}
-async function onDrop(e, targetId) {
-  e.preventDefault();
-  document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
-  if (!dragSrcId || dragSrcId === targetId) return;
-  const si = subs.findIndex(s => s.firestoreId === dragSrcId);
-  const ti = subs.findIndex(s => s.firestoreId === targetId);
-  if (si < 0 || ti < 0) return;
-  const reordered = [...subs];
-  const [moved] = reordered.splice(si, 1);
-  reordered.splice(ti, 0, moved);
-  await Promise.all(
-    reordered.map((s, i) =>
-      updateDoc(doc(db, 'users', currentUser.uid, 'subscriptions', s.firestoreId), { order: i })
-    )
-  );
+
+// move up/down buttons
+async function moveCard(fid, dir) {
+  const i = subs.findIndex(s=>s.firestoreId===fid);
+  const j = i + dir;
+  if (j<0||j>=subs.length) return;
+  const r=[...subs]; [r[i],r[j]]=[r[j],r[i]];
+  await Promise.all(r.map((s,idx)=>updateDoc(doc(db,'users',currentUser.uid,'subscriptions',s.firestoreId),{order:idx})));
 }
 
 // ── RENDER ─────────────────────────────────────────────────
 function render() {
   const q    = document.getElementById('searchEl').value.toLowerCase();
-  const list = subs.filter(s => !q || s.name.toLowerCase().includes(q) || s.cat.toLowerCase().includes(q));
+  const list = subs.filter(s=>!q||s.name.toLowerCase().includes(q)||s.cat?.toLowerCase().includes(q));
 
-  const active  = subs.filter(s => s.status === 'active');
-  const monthly = active.reduce((a, s) => a + monthCost(s), 0);
+  const active  = subs.filter(s=>s.status==='active');
+  const monthly = active.reduce((a,s)=>a+monthCost(s),0);
   document.getElementById('statMonthly').textContent = fmt(monthly);
-  document.getElementById('statYearly').textContent  = fmt(monthly * 12);
+  document.getElementById('statYearly').textContent  = fmt(monthly*12);
   document.getElementById('statCount').textContent   = active.length;
 
-  const soon = subs.filter(s => s.status==='active' && daysUntil(s.renew)<=3 && daysUntil(s.renew)>=0);
+  const soon = subs.filter(s=>s.status==='active'&&daysUntil(s.renew)<=3&&daysUntil(s.renew)>=0);
   document.getElementById('alertEl').innerHTML = soon.length
-    ? `<div class="alert-bar">⚡ ต่ออายุเร็วๆ นี้: ${soon.map(s=>`<b>${s.name}</b> (${daysUntil(s.renew)} วัน)`).join(' · ')}</div>`
-    : '';
+    ? `<div class="alert-bar">⚡ ต่ออายุเร็วๆ นี้: ${soon.map(s=>`<b>${s.name}</b> (${daysUntil(s.renew)} วัน)`).join(' · ')}</div>` : '';
 
   const grid = document.getElementById('gridEl');
-  if (!list.length) { grid.innerHTML = '<div class="empty">ยังไม่มี subscription</div>'; return; }
+  if (!list.length) { grid.innerHTML='<div class="empty">ยังไม่มี subscription — กด + เพิ่ม</div>'; return; }
 
-  grid.innerHTML = '';
-  list.forEach(s => {
-    const days       = daysUntil(s.renew);
-    const isActive   = s.status === 'active';
-    const isPaused   = s.status === 'paused';
-    const bg         = BG[s.cat] || '#6B7280';
-    const initials   = s.name.slice(0, 2).toUpperCase();
-    const cycleLabel = s.cycle==='monthly'?'Per month': s.cycle==='yearly'?'Per year':'Per week';
-    let badgeText = '';
-    if      (isPaused)                 badgeText = 'paused';
-    else if (s.status==='cancelled')   badgeText = 'cancelled';
-    else if (days < 0)                 badgeText = 'expired';
-    else if (days === 0)               badgeText = 'today!';
-    else if (days <= 3)                badgeText = `${days}d!`;
-    const badgeColor = (days<=3 && isActive) ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)';
+  grid.innerHTML='';
+  list.forEach(s=>{
+    const days     = daysUntil(s.renew);
+    const isActive = s.status==='active';
+    const isPaused = s.status==='paused';
+    const cyc      = s.cycle==='monthly'?'month':s.cycle==='yearly'?'year':'week';
+    const initials = s.name.slice(0,2).toUpperCase();
+    const iconHtml = s.icon
+      ? `<img class="card-icon-img" src="${s.icon}" alt="${s.name}"/>`
+      : `<span class="card-icon-text">${initials}</span>`;
+
+    let badgeHtml='';
+    if (isPaused)               badgeHtml=`<span class="card-badge badge-paused">paused</span>`;
+    else if(s.status==='cancelled') badgeHtml=`<span class="card-badge badge-cancelled">cancelled</span>`;
+    else if(days<=3&&days>=0)   badgeHtml=`<span class="card-badge badge-soon">${days===0?'today!':days+'d'}</span>`;
+
+    let renewTxt='';
+    if(days<0)      renewTxt=`<span class="card-renew" style="color:#ef4444">หมดอายุ ${Math.abs(days)} วันที่แล้ว</span>`;
+    else if(days<=3) renewTxt=`<span class="card-renew soon">ต่ออายุใน ${days} วัน</span>`;
+    else             renewTxt=`<span class="card-renew">${fmtDate(s.renew)}</span>`;
 
     const card = document.createElement('div');
-    card.className      = 'card';
-    card.dataset.id     = s.firestoreId;
-    card.draggable      = true;
-    card.style.background = isActive ? bg : '#1e1e28';
-    card.style.opacity    = isPaused ? '0.6' : '1';
-    card.innerHTML = `
-      <div class="card-icon">${initials}</div>
-      <div class="card-mid">
-        <div class="card-name">${s.name}</div>
-        <div class="card-date">${fmtDate(s.renew)}</div>
+    card.className='card'; card.dataset.id=s.firestoreId; card.draggable=true;
+    card.style.opacity = (isPaused||s.status==='cancelled') ? '0.6' : '1';
+
+    card.innerHTML=`
+      <div class="card-top">
+        <div class="card-icon-wrap" id="iconWrap_${s.firestoreId}" title="คลิกเพื่อเปลี่ยนรูป">
+          ${iconHtml}
+        </div>
+        <input type="file" accept="image/*" class="icon-upload-input" id="iconInput_${s.firestoreId}"/>
+        <div class="card-mid">
+          <div class="card-name">${s.name}</div>
+          <div class="card-cycle">${s.cat||''}</div>
+        </div>
+        <div class="card-right">
+          <div class="card-cost">${fmt(s.cost)}</div>
+          <div class="card-cycle-right">${cyc}</div>
+        </div>
       </div>
-      <div class="card-right">
-        <div class="card-cost">${fmt(s.cost)}</div>
-        <div class="card-cycle">${cycleLabel}</div>
-      </div>
-      ${badgeText ? `<div class="card-badge" style="color:${badgeColor}">${badgeText}</div>` : ''}
-      <div class="card-actions">
-        <button onclick="openEdit('${s.firestoreId}');event.stopPropagation()">แก้ไข</button>
-        <button onclick="confirmDelete('${s.firestoreId}');event.stopPropagation()">ลบ</button>
+      ${s.notes?`<div class="card-notes">${s.notes}</div>`:''}
+      <div class="card-bottom">
+        ${renewTxt}
+        <div style="display:flex;align-items:center;gap:10px">
+          ${badgeHtml}
+          <div class="card-drag">
+            <button class="drag-btn" title="ขึ้น">▲</button>
+            <button class="drag-btn" title="ลง">▼</button>
+          </div>
+          <div class="card-actions">
+            <button class="btn-edit">Edit</button>
+            <button class="btn-delete">Delete</button>
+          </div>
+        </div>
       </div>`;
-    card.addEventListener('dragstart', e => onDragStart(e, s.firestoreId));
+
+    // icon upload
+    const wrap  = card.querySelector(`#iconWrap_${s.firestoreId}`);
+    const input = card.querySelector(`#iconInput_${s.firestoreId}`);
+    wrap.addEventListener('click', e=>{ e.stopPropagation(); input.click(); });
+    input.addEventListener('change', async e=>{
+      const file=e.target.files[0]; if(!file) return;
+      const b64=await fileToBase64(file);
+      await updateSub(s.firestoreId, {...s, icon:b64});
+    });
+
+    // drag
+    card.addEventListener('dragstart', e=>onDragStart(e,s.firestoreId));
     card.addEventListener('dragend',   onDragEnd);
-    card.addEventListener('dragover',  e => onDragOver(e, s.firestoreId));
-    card.addEventListener('drop',      e => onDrop(e, s.firestoreId));
-    card.addEventListener('click',     () => openEdit(s.firestoreId));
+    card.addEventListener('dragover',  e=>onDragOver(e,s.firestoreId));
+    card.addEventListener('drop',      e=>onDrop(e,s.firestoreId));
+
+    // buttons
+    const [upBtn,dnBtn] = card.querySelectorAll('.drag-btn');
+    upBtn.addEventListener('click', e=>{ e.stopPropagation(); moveCard(s.firestoreId,-1); });
+    dnBtn.addEventListener('click', e=>{ e.stopPropagation(); moveCard(s.firestoreId,+1); });
+    card.querySelector('.btn-edit').addEventListener('click',   e=>{ e.stopPropagation(); openEdit(s.firestoreId); });
+    card.querySelector('.btn-delete').addEventListener('click', e=>{ e.stopPropagation(); if(confirm('ลบ?')) deleteSub(s.firestoreId); });
+    card.addEventListener('click', ()=>openEdit(s.firestoreId));
+
     grid.appendChild(card);
   });
 }
 
 // ── MODAL ──────────────────────────────────────────────────
-function openAdd()    { showModal(null); }
-function openEdit(id) { showModal(subs.find(s => s.firestoreId === id)); }
+function openAdd()    { pendingIcon=null; showModal(null); }
+function openEdit(id) { pendingIcon=null; showModal(subs.find(s=>s.firestoreId===id)); }
 
 function showModal(sub) {
-  const isEdit = !!sub;
+  const isEdit  = !!sub;
+  const initials = sub ? sub.name.slice(0,2).toUpperCase() : '??';
+  const iconSrc  = sub?.icon || '';
   document.getElementById('modalBg').classList.add('open');
   document.getElementById('modalEl').innerHTML = `
-    <h2>${isEdit ? 'แก้ไข' : 'เพิ่ม'} subscription</h2>
+    <h2>${isEdit?'แก้ไข':'เพิ่ม'} subscription</h2>
+
+    <div class="icon-preview-wrap">
+      <div class="icon-preview" id="modalIconPreview">
+        ${iconSrc
+          ? `<img src="${iconSrc}" id="modalIconImg" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>`
+          : `<span class="icon-preview-text" id="modalIconTxt">${initials}</span>`}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">ไอคอน</div>
+        <div class="icon-preview-hint">คลิกเพื่ออัปโหลดรูป</div>
+      </div>
+      <input type="file" accept="image/*" id="modalIconInput" style="display:none"/>
+    </div>
+
     <div class="field"><label>ชื่อ</label>
       <input id="m_name" value="${sub?.name||''}" placeholder="เช่น Netflix" autofocus/></div>
     <div class="row2">
       <div class="field"><label>Category</label>
         <select id="m_cat">${CATS.map(c=>`<option${sub?.cat===c?' selected':''}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Status</label>
-        <select id="m_st">${['active','paused','cancelled'].map(s=>`<option${sub?.status===s?' selected':''}>${s}</option>`).join('')}</select></div>
+        <select id="m_st">${['active','paused','cancelled'].map(v=>`<option${sub?.status===v?' selected':''}>${v}</option>`).join('')}</select></div>
     </div>
     <div class="row2">
       <div class="field"><label>ราคา (฿)</label>
@@ -285,22 +262,46 @@ function showModal(sub) {
         <input id="m_method" value="${sub?.method||''}" placeholder="Credit Card"/></div>
     </div>
     <div class="field"><label>หมายเหตุ</label>
-      <input id="m_notes" value="${sub?.notes||''}" placeholder="..."/></div>
+      <textarea id="m_notes">${sub?.notes||''}</textarea></div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
-      ${isEdit ? `<button class="btn-del" onclick="confirmDelete('${sub.firestoreId}');closeModal()">ลบ</button>` : ''}
-      <button class="btn-save" onclick="saveSub('${isEdit?sub.firestoreId:''}')">${isEdit?'บันทึก':'เพิ่ม'}</button>
+      <button class="btn-m-cancel" id="mCancel">ยกเลิก</button>
+      ${isEdit?`<button class="btn-m-del" id="mDel">ลบ</button>`:''}
+      <button class="btn-m-save" id="mSave">${isEdit?'บันทึก':'เพิ่ม'}</button>
     </div>`;
+
+  // icon preview in modal
+  pendingIcon = sub?.icon || null;
+  const prev  = document.getElementById('modalIconPreview');
+  const inp   = document.getElementById('modalIconInput');
+  prev.addEventListener('click', ()=>inp.click());
+  inp.addEventListener('change', async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    pendingIcon = await fileToBase64(file);
+    prev.innerHTML=`<img src="${pendingIcon}" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>`;
+  });
+
+  // update initials preview when name changes (no icon)
+  document.getElementById('m_name').addEventListener('input', e=>{
+    if (!pendingIcon) {
+      const txt=document.getElementById('modalIconTxt');
+      if (txt) txt.textContent = e.target.value.slice(0,2).toUpperCase()||'??';
+    }
+  });
+
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mSave').addEventListener('click',   ()=>saveSub(sub?.firestoreId||''));
+  if (isEdit) document.getElementById('mDel').addEventListener('click', ()=>{ if(confirm('ลบ?')){ deleteSub(sub.firestoreId); closeModal(); } });
 }
 
 function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
 
-async function saveSub(firestoreId) {
+async function saveSub(fid) {
   const name = document.getElementById('m_name').value.trim();
   if (!name) return;
   const data = {
-    name, cat: document.getElementById('m_cat').value,
-    cost:   parseFloat(document.getElementById('m_cost').value) || 0,
+    name, icon: pendingIcon||null,
+    cat:    document.getElementById('m_cat').value,
+    cost:   parseFloat(document.getElementById('m_cost').value)||0,
     cycle:  document.getElementById('m_cycle').value,
     status: document.getElementById('m_st').value,
     renew:  document.getElementById('m_renew').value,
@@ -308,38 +309,29 @@ async function saveSub(firestoreId) {
     notes:  document.getElementById('m_notes').value,
   };
   closeModal();
-  if (firestoreId) await updateSub(firestoreId, data);
-  else             await addSub(data);
+  if (fid) await updateSub(fid, data);
+  else     await addSub(data);
 }
 
-function confirmDelete(id) {
-  if (confirm('ลบ subscription นี้?')) deleteSub(id);
-}
-
-// ── EXPOSE GLOBALS (needed for inline onclick) ─────────────
-window.openEdit      = openEdit;
-window.confirmDelete = confirmDelete;
-window.closeModal    = closeModal;
-window.saveSub       = saveSub;
-
-// ── EVENT LISTENERS ────────────────────────────────────────
+// ── EVENTS ─────────────────────────────────────────────────
 document.getElementById('addBtn').addEventListener('click', openAdd);
 document.getElementById('searchEl').addEventListener('input', render);
-document.getElementById('modalBg').addEventListener('click', e => {
-  if (e.target === document.getElementById('modalBg')) closeModal();
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target===document.getElementById('modalBg')) closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+document.getElementById('loginBtn2')?.addEventListener('click', ()=>signInWithPopup(auth,provider));
 
-// ── AUTH STATE OBSERVER ────────────────────────────────────
-onAuthStateChanged(auth, (user) => {
+// ── AUTH ───────────────────────────────────────────────────
+onAuthStateChanged(auth, user=>{
   currentUser = user;
-  renderAuthBar(user);
+  renderTopbar(user);
   if (user) {
-    showAppScreen();
+    document.getElementById('appContent').style.display='block';
+    document.getElementById('loginScreen').style.display='none';
     startListener(user.uid);
   } else {
-    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-    subs = [];
-    showLoginScreen();
+    if (unsubscribe) { unsubscribe(); unsubscribe=null; }
+    subs=[];
+    document.getElementById('appContent').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
   }
 });
