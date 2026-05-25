@@ -19,29 +19,20 @@
   </div>
 
   <!-- HERO -->
-  <div class="hero">
-    <h1>Subscription</h1>
-  </div>
+  <a class="hero" href="../">
+    <h1>KanaHub</h1>
+  </a>
 
   <!-- APP -->
   <div id="appContent" style="display:none">
-    <!-- STATS -->
+    <div class="section-label">Subscription Tracker</div>
+
     <div class="stats-row">
-      <div class="stat">
-        <div class="stat-val" id="statMonthly">฿0</div>
-        <div class="stat-label">/เดือน</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statYearly">฿0</div>
-        <div class="stat-label">/ปี</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statCount">0</div>
-        <div class="stat-label">ACTIVE</div>
-      </div>
+      <div class="stat"><div class="stat-val" id="statMonthly">฿0</div><div class="stat-label">/เดือน</div></div>
+      <div class="stat"><div class="stat-val" id="statYearly">฿0</div><div class="stat-label">/ปี</div></div>
+      <div class="stat"><div class="stat-val" id="statCount">0</div><div class="stat-label">ACTIVE</div></div>
     </div>
 
-    <!-- TOOLBAR -->
     <div class="toolbar">
       <input type="text" id="searchEl" placeholder="ค้นหา..."/>
       <button class="btn-add" id="addBtn">+ เพิ่ม</button>
@@ -49,14 +40,10 @@
     </div>
 
     <div id="alertEl"></div>
-
-    <!-- CARDS -->
-    <div class="cards-grid" id="gridEl">
-      <div class="empty">กำลังโหลด...</div>
-    </div>
+    <div class="cards-grid" id="gridEl"><div class="empty">กำลังโหลด...</div></div>
   </div>
 
-  <!-- LOGIN SCREEN -->
+  <!-- LOGIN -->
   <div id="loginScreen" style="display:none">
     <div class="login-box">
       <p>กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
