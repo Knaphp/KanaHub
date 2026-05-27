@@ -34,19 +34,7 @@ function daysUntil(ds){ const t=new Date(ds),n=new Date(); n.setHours(0,0,0,0);t
 function fmt(n){ return '฿'+Math.round(n).toLocaleString('th-TH'); }
 function fmtDate(ds){ const d=new Date(ds); return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`; }
 function showStatus(msg,err=false){ const el=document.getElementById('statusEl'); el.textContent=msg; el.style.color=err?'#ef4444':'#3dba8f'; el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',2500); }
-
-// ── PASTE IMAGE helper ─────────────────────────────────────
-function extractImageFromClipboard(items) {
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      return item.getAsFile();
-    }
-  }
-  return null;
-}
-function fileToBase64(file){
-  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
-}
+function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); }); }
 
 // ── TOPBAR ─────────────────────────────────────────────────
 function renderTopbar(user){
@@ -64,19 +52,16 @@ function renderTopbar(user){
 
 // ── FIRESTORE ──────────────────────────────────────────────
 function col(uid){ return collection(db,'users',uid,'subscriptions'); }
-
 function startListener(uid){
   if(unsubscribe) unsubscribe();
-  const q=query(col(uid),orderBy('order','asc'));
-  unsubscribe=onSnapshot(q,snap=>{
+  unsubscribe=onSnapshot(query(col(uid),orderBy('order','asc')),snap=>{
     subs=snap.docs.map(d=>({firestoreId:d.id,...d.data()}));
     render();
   },err=>{ console.error(err); showStatus('Firebase error',true); });
 }
-
-async function addSub(data){ try{ data.order=subs.length; await addDoc(col(currentUser.uid),data); showStatus('เพิ่มแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
-async function updateSub(fid,data){ try{ await updateDoc(doc(db,'users',currentUser.uid,'subscriptions',fid),data); showStatus('บันทึกแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
-async function deleteSub(fid){ try{ await deleteDoc(doc(db,'users',currentUser.uid,'subscriptions',fid)); showStatus('ลบแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
+async function addSub(data)         { try{ data.order=subs.length; await addDoc(col(currentUser.uid),data); showStatus('เพิ่มแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
+async function updateSub(fid,data)  { try{ await updateDoc(doc(db,'users',currentUser.uid,'subscriptions',fid),data); showStatus('บันทึกแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
+async function deleteSub(fid)       { try{ await deleteDoc(doc(db,'users',currentUser.uid,'subscriptions',fid)); showStatus('ลบแล้ว ✓'); }catch(e){ showStatus(e.message,true); } }
 
 // ── DRAG & DROP ────────────────────────────────────────────
 function onDragStart(e,id){ dragSrcId=id; e.dataTransfer.effectAllowed='move'; setTimeout(()=>document.querySelector(`[data-id="${id}"]`)?.classList.add('dragging'),0); }
@@ -91,26 +76,20 @@ async function onDrop(e,tid){
   await Promise.all(r.map((s,i)=>updateDoc(doc(db,'users',currentUser.uid,'subscriptions',s.firestoreId),{order:i})));
 }
 
-// ── ICON PASTE on card ─────────────────────────────────────
-function setupIconPaste(wrapEl, fid) {
-  // highlight on focus so user knows to paste here
-  wrapEl.addEventListener('click', e=>{ e.stopPropagation(); wrapEl.focus(); });
-  wrapEl.setAttribute('tabindex','0');
-  wrapEl.addEventListener('keydown', async e=>{
-    if((e.ctrlKey||e.metaKey) && e.key==='v'){
+// ── PASTE ICON ─────────────────────────────────────────────
+async function pasteIcon(el, onDone){
+  el.addEventListener('click', ()=>el.focus());
+  el.setAttribute('tabindex','0');
+  el.addEventListener('keydown', async e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='v'){
       e.preventDefault();
-      try {
-        const items = await navigator.clipboard.read();
+      try{
+        const items=await navigator.clipboard.read();
         for(const item of items){
-          const imgType = item.types.find(t=>t.startsWith('image/'));
-          if(imgType){
-            const blob = await item.getType(imgType);
-            const b64  = await fileToBase64(blob);
-            await updateSub(fid, {...subs.find(s=>s.firestoreId===fid), icon:b64});
-            return;
-          }
+          const t=item.types.find(t=>t.startsWith('image/'));
+          if(t){ const b64=await fileToBase64(await item.getType(t)); onDone(b64); return; }
         }
-      } catch(err){ showStatus('ไม่สามารถ paste รูปได้',true); }
+      }catch(err){ showStatus('ไม่สามารถ paste รูปได้',true); }
     }
   });
 }
@@ -141,13 +120,13 @@ function render(){
     const cyc=s.cycle==='monthly'?'month':s.cycle==='yearly'?'year':'week';
     const initials=s.name.slice(0,2).toUpperCase();
     const iconHtml=s.icon
-      ?`<img class="card-icon-img" src="${s.icon}" alt="${s.name}"/>`
+      ?`<img class="card-icon-img" src="${s.icon}"/>`
       :`<span class="card-icon-text">${initials}</span>`;
 
     let badgeHtml='';
-    if(isPaused)              badgeHtml=`<span class="card-badge badge-paused">paused</span>`;
+    if(isPaused)                    badgeHtml=`<span class="card-badge badge-paused">paused</span>`;
     else if(s.status==='cancelled') badgeHtml=`<span class="card-badge badge-cancelled">cancelled</span>`;
-    else if(days<=3&&days>=0) badgeHtml=`<span class="card-badge badge-soon">${days===0?'today!':days+'d'}</span>`;
+    else if(days<=3&&days>=0)       badgeHtml=`<span class="card-badge badge-soon">${days===0?'today!':days+'d'}</span>`;
 
     let renewTxt='';
     if(days<0)       renewTxt=`<span class="card-renew" style="color:#ef4444">หมดอายุแล้ว</span>`;
@@ -157,9 +136,10 @@ function render(){
     const card=document.createElement('div');
     card.className='card'; card.dataset.id=s.firestoreId; card.draggable=true;
     card.style.opacity=(isPaused||s.status==='cancelled')?'0.6':'1';
+
     card.innerHTML=`
       <div class="card-top">
-        <div class="card-icon-wrap" id="iconWrap_${s.firestoreId}" title="คลิกแล้ว Ctrl+V วางรูป">${iconHtml}</div>
+        <div class="card-icon-wrap" id="iw_${s.firestoreId}" title="คลิก → Ctrl+V วางรูป">${iconHtml}</div>
         <div class="card-mid">
           <div class="card-name">${s.name}</div>
           <div class="card-cat">${s.cat||''}</div>
@@ -169,21 +149,20 @@ function render(){
           <div class="card-cycle">${cyc}</div>
         </div>
       </div>
-      ${s.notes?`<div class="card-notes">${s.notes}</div>`:''}
+      <div class="card-notes">${s.notes||'—'}</div>
       <div class="card-bottom">
         ${renewTxt}
         <div style="display:flex;align-items:center;gap:8px">
           ${badgeHtml}
-          <div class="card-actions">
-            <button class="btn-edit">Edit</button>
-            <button class="btn-delete">Delete</button>
-          </div>
+          <span class="card-edit-hint">คลิกเพื่อแก้ไข</span>
         </div>
       </div>`;
 
     // paste icon on card
-    const wrap=card.querySelector(`#iconWrap_${s.firestoreId}`);
-    setupIconPaste(wrap, s.firestoreId);
+    const wrap=card.querySelector(`#iw_${s.firestoreId}`);
+    pasteIcon(wrap, async b64=>{
+      await updateSub(s.firestoreId,{...s,icon:b64});
+    });
 
     // drag
     card.addEventListener('dragstart',e=>onDragStart(e,s.firestoreId));
@@ -191,10 +170,10 @@ function render(){
     card.addEventListener('dragover',e=>onDragOver(e,s.firestoreId));
     card.addEventListener('drop',e=>onDrop(e,s.firestoreId));
 
-    // buttons
-    card.querySelector('.btn-edit').addEventListener('click',e=>{ e.stopPropagation(); openEdit(s.firestoreId); });
-    card.querySelector('.btn-delete').addEventListener('click',e=>{ e.stopPropagation(); if(confirm('ลบ?')) deleteSub(s.firestoreId); });
-    card.addEventListener('click',()=>openEdit(s.firestoreId));
+    // click card → open edit (not icon wrap)
+    card.addEventListener('click',e=>{
+      if(!e.target.closest('.card-icon-wrap')) openEdit(s.firestoreId);
+    });
 
     grid.appendChild(card);
   });
@@ -206,22 +185,22 @@ function openEdit(id){ pendingIcon=null; showModal(subs.find(s=>s.firestoreId===
 
 function showModal(sub){
   const isEdit=!!sub;
-  const initials=sub?sub.name.slice(0,2).toUpperCase():'??';
   pendingIcon=sub?.icon||null;
+  const initials=sub?sub.name.slice(0,2).toUpperCase():'??';
 
   document.getElementById('modalBg').classList.add('open');
   document.getElementById('modalEl').innerHTML=`
     <h2>${isEdit?'แก้ไข':'เพิ่ม'} subscription</h2>
 
     <div class="icon-preview-wrap">
-      <div class="icon-preview" id="modalIconPreview" tabindex="0" title="คลิกแล้ว Ctrl+V / Cmd+V วางรูป">
+      <div class="icon-preview" id="modalIconPreview" tabindex="0" title="คลิก → Ctrl+V / Cmd+V">
         ${pendingIcon
           ?`<img src="${pendingIcon}" style="width:100%;height:100%;object-fit:cover;border-radius:12px"/>`
           :`<span class="icon-preview-text" id="modalIconTxt">${initials}</span>`}
       </div>
       <div>
         <div style="font-size:13px;font-weight:600;color:#111;margin-bottom:4px">ไอคอน</div>
-        <div class="icon-hint">คลิกที่กล่อง → กด Ctrl+V (หรือ Cmd+V)<br>เพื่อ paste รูปจาก clipboard</div>
+        <div class="icon-hint">คลิกที่กล่อง<br>กด Ctrl+V หรือ Cmd+V เพื่อวางรูป</div>
       </div>
     </div>
 
@@ -253,33 +232,16 @@ function showModal(sub){
       <button class="btn-m-save" id="mSave">${isEdit?'บันทึก':'เพิ่ม'}</button>
     </div>`;
 
-  // paste in modal icon box
+  // paste in modal
   const prev=document.getElementById('modalIconPreview');
-  prev.addEventListener('click',()=>prev.focus());
-  prev.addEventListener('keydown', async e=>{
-    if((e.ctrlKey||e.metaKey)&&e.key==='v'){
-      e.preventDefault();
-      try {
-        const items=await navigator.clipboard.read();
-        for(const item of items){
-          const imgType=item.types.find(t=>t.startsWith('image/'));
-          if(imgType){
-            const blob=await item.getType(imgType);
-            pendingIcon=await fileToBase64(blob);
-            prev.innerHTML=`<img src="${pendingIcon}" style="width:100%;height:100%;object-fit:cover;border-radius:12px"/>`;
-            return;
-          }
-        }
-      } catch(err){ showStatus('ไม่สามารถ paste รูปได้',true); }
-    }
+  pasteIcon(prev, b64=>{
+    pendingIcon=b64;
+    prev.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:12px"/>`;
   });
 
-  // update initials when typing name (no icon yet)
+  // live initials update
   document.getElementById('m_name').addEventListener('input',e=>{
-    if(!pendingIcon){
-      const txt=document.getElementById('modalIconTxt');
-      if(txt) txt.textContent=e.target.value.slice(0,2).toUpperCase()||'??';
-    }
+    if(!pendingIcon){ const t=document.getElementById('modalIconTxt'); if(t) t.textContent=e.target.value.slice(0,2).toUpperCase()||'??'; }
   });
 
   document.getElementById('mCancel').addEventListener('click',closeModal);
