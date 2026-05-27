@@ -19,7 +19,7 @@ body { font-family: 'Inter', sans-serif; background: #edfaf4; min-height: 100vh;
 .hero h1 { font-size: clamp(40px,7vw,72px); font-weight: 800; color: #fff; letter-spacing: -0.04em; }
 
 /* ── SECTION LABEL ── */
-.section-label { text-align: center; font-size: 24px; font-weight: 600; color: #3dba8f; letter-spacing: 0.1em; text-transform: uppercase; padding: 1.25rem 0 0; }
+.section-label { text-align: center; font-size: 13px; font-weight: 600; color: #3dba8f; letter-spacing: 0.1em; text-transform: uppercase; padding: 1.25rem 0 0; }
 
 /* ── STATS ── */
 .stats-row { display: flex; justify-content: center; gap: 3rem; padding: 1rem 2rem; }
