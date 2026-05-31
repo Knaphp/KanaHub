@@ -1,1 +1,168 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KanaHub — Bookshelf</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="user-info" id="userInfo">
+      <div class="user-avatar-placeholder">👤</div>
+      <span class="user-name">กำลังโหลด...</span>
+    </div>
+    <div id="authAction"></div>
+  </div>
+
+  <!-- HERO (back to KanaHub) -->
+  <a class="hero" href="../">
+    <h1>KanaHub</h1>
+  </a>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" style="display:none">
+    <div class="login-box">
+      <p>กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+      <button class="btn-google" id="loginBtn">
+        <svg width="16" height="16" viewBox="0 0 48 48" style="vertical-align:middle;margin-right:8px">
+          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.8 6C12.3 13 17.7 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
+          <path fill="#FBBC05" d="M10.4 28.7A14.6 14.6 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.8-6z"/>
+          <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.7 2.2-6.3 0-11.6-4.2-13.6-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
+        </svg>
+        เข้าสู่ระบบด้วย Google
+      </button>
+    </div>
+  </div>
+
+  <!-- APP CONTENT -->
+  <div id="appContent" style="display:none">
+
+    <!-- หน้า 1: Collections -->
+    <div id="page-collections">
+      <header>
+        <div class="header-left">
+          <span class="header-icon">📚</span>
+          <div>
+            <h1>My Bookshelf</h1>
+            <p class="header-sub">คลิก collection เพื่อเปิดชั้นหนังสือ</p>
+          </div>
+        </div>
+        <button id="btn-add-collection">+ สร้าง Collection</button>
+      </header>
+      <main id="collections-grid"></main>
+    </div>
+
+    <!-- หน้า 2: Shelves -->
+    <div id="page-shelves" class="hidden">
+      <header>
+        <div class="header-left">
+          <button id="btn-back" class="btn-back">← กลับ</button>
+          <div>
+            <h1 id="collection-title">ชื่อ Collection</h1>
+            <p class="header-sub" id="collection-stats"></p>
+          </div>
+        </div>
+        <button id="btn-add-shelf">+ เพิ่มชั้น</button>
+      </header>
+      <main id="shelves-container"></main>
+    </div>
+
+  </div>
+
+  <!-- Modal: Collection -->
+  <div id="collection-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="col-modal-title">สร้าง Collection</h2>
+      <label>ชื่อ Collection *</label>
+      <input type="text" id="input-col-name" placeholder="เช่น นิยายญี่ปุ่น, หนังสือวิทย์...">
+      <label>คำอธิบาย (ไม่บังคับ)</label>
+      <input type="text" id="input-col-desc" placeholder="เช่น รวมมังงะที่ชอบ">
+      <label>ไอคอน</label>
+      <div class="emoji-picker" id="emoji-picker">
+        <span data-emoji="📚">📚</span><span data-emoji="📖">📖</span>
+        <span data-emoji="🔖">🔖</span><span data-emoji="✨">✨</span>
+        <span data-emoji="🌸">🌸</span><span data-emoji="🌙">🌙</span>
+        <span data-emoji="🎭">🎭</span><span data-emoji="🧪">🧪</span>
+        <span data-emoji="🏺">🏺</span><span data-emoji="🎨">🎨</span>
+        <span data-emoji="🗺️">🗺️</span><span data-emoji="💻">💻</span>
+        <span data-emoji="🌿">🌿</span><span data-emoji="🦋">🦋</span>
+        <span data-emoji="🎵">🎵</span><span data-emoji="⭐">⭐</span>
+      </div>
+      <input type="hidden" id="input-col-emoji" value="📚">
+      <label>สีการ์ด</label>
+      <div class="color-picker" id="color-picker">
+        <span data-color="#fde8e8" style="background:#fde8e8"></span>
+        <span data-color="#fdecd2" style="background:#fdecd2"></span>
+        <span data-color="#fef9c3" style="background:#fef9c3"></span>
+        <span data-color="#dcfce7" style="background:#dcfce7"></span>
+        <span data-color="#dbeafe" style="background:#dbeafe"></span>
+        <span data-color="#ede9fe" style="background:#ede9fe"></span>
+        <span data-color="#fce7f3" style="background:#fce7f3"></span>
+        <span data-color="#e0f2fe" style="background:#e0f2fe"></span>
+        <span data-color="#f0fdf4" style="background:#f0fdf4"></span>
+        <span data-color="#f5f0e8" style="background:#f5f0e8"></span>
+      </div>
+      <input type="hidden" id="input-col-color" value="#fde8e8">
+      <div class="modal-actions">
+        <button id="btn-delete-col" class="btn-danger">🗑 ลบ</button>
+        <button id="btn-cancel-col">ยกเลิก</button>
+        <button id="btn-save-col">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Shelf -->
+  <div id="shelf-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="shelf-modal-title">สร้างชั้นหนังสือ</h2>
+      <label>ชื่อชั้น *</label>
+      <input type="text" id="input-shelf-name" placeholder="เช่น อ่านแล้ว, กำลังอ่าน...">
+      <div class="modal-actions">
+        <button id="btn-delete-shelf" class="btn-danger">🗑 ลบชั้นนี้</button>
+        <button id="btn-cancel-shelf">ยกเลิก</button>
+        <button id="btn-save-shelf">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Book -->
+  <div id="book-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="book-modal-title">เพิ่มหนังสือ</h2>
+      <label>ชื่อหนังสือ *</label>
+      <input type="text" id="input-title" placeholder="ชื่อหนังสือ">
+      <label>ผู้แต่ง</label>
+      <input type="text" id="input-author" placeholder="ชื่อผู้แต่ง">
+      <label>ปกหนังสือ — คลิกแล้ว Ctrl+V / Cmd+V วางรูป</label>
+      <div class="paste-zone" id="paste-zone" tabindex="0">
+        <div class="paste-placeholder" id="paste-placeholder">
+          <span class="paste-hint">🖼️</span>
+          <span>คลิกที่นี่แล้วกด Ctrl+V / Cmd+V</span>
+          <span class="paste-sub">หรือวาง URL ด้านล่าง</span>
+        </div>
+        <div class="paste-preview" id="paste-preview" style="display:none">
+          <img src="" alt="ปก">
+          <button class="clear-img" id="btn-clear-img">✕</button>
+        </div>
+      </div>
+      <label>หรือใส่ URL รูปปก</label>
+      <input type="text" id="input-cover" placeholder="https://...">
+      <label>จำนวนหน้า</label>
+      <input type="number" id="input-pages" placeholder="เช่น 320">
+      <label>สำนักพิมพ์</label>
+      <input type="text" id="input-publisher" placeholder="ชื่อสำนักพิมพ์">
+      <div class="modal-actions">
+        <button id="btn-delete-book" class="btn-danger">🗑 ลบ</button>
+        <button id="btn-cancel-book">ยกเลิก</button>
+        <button id="btn-save-book">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
